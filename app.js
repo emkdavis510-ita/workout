@@ -16,7 +16,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 
 /* ---------- state ---------- */
 function fresh() {
-  return { start: todayISO(), unit: 'kg', rest: 75, voice: true, done: {}, rounds: {}, weights: {}, swaps: {},
+  return { start: todayISO(), unit: 'kg', rest: 75, voice: true, done: {}, rounds: {}, weights: {}, swaps: {}, layouts: {},
     ladder: { rung: 0, log: [], pending: null }, timer: null };
 }
 function load() {
@@ -27,7 +27,13 @@ function load() {
   return fresh();
 }
 let S = load();
-function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } }
+let saveError = null;
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(S)); saveError = null; }
+  catch (e) { saveError = String(e && e.name || e); }
+}
+// Ask the browser to keep this app's data even when storage runs low.
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) { /* ignore */ }
 
 /* ---------- plan helpers ---------- */
 const N_DAYS = DAYS.length;
@@ -85,16 +91,26 @@ function totalProgress() {
   for (let n = 1; n <= N_DAYS; n++) { const p = dayProgress(n); done += p.done; total += p.total; }
   return { done, total, pct: total ? Math.round((done / total) * 100) : 0 };
 }
-function liftGroups(s) {
-  const g = [];
-  for (const e of s.ex) {
-    const k = e[0] === 'Fin' ? 'Fin' : e[0][0];
-    let G = g.find(x => x.k === k);
-    if (!G) { G = { k, ex: [], sets: parseInt(e[2], 10) || 1 }; g.push(G); }
-    G.ex.push(e);
+// Supersets. A layout (S.layouts[sessionKey]) lets you reorder and re-pair exercises; ids are the original labels.
+const GROUP_KEYS = ['A', 'B', 'C', 'D', 'E', 'Fin'];
+const baseGroup = id => (id === 'Fin' ? 'Fin' : id[0]);
+const groupName = k => (k === 'Fin' ? 'Finisher' : `Superset ${k}`);
+function liftGroups(s, sk, keepEmpty = false) {
+  const byId = Object.fromEntries(s.ex.map(e => [e[0], e]));
+  const lay = sk && S.layouts && S.layouts[sk];
+  const groups = GROUP_KEYS.map(k => ({ k, ex: [] }));
+  const used = new Set();
+  if (lay) {
+    for (const G of groups) {
+      for (const id of lay[G.k] || []) if (byId[id] && !used.has(id)) { used.add(id); G.ex.push(byId[id]); }
+    }
   }
-  return g;
+  for (const e of s.ex) if (!used.has(e[0])) groups.find(G => G.k === baseGroup(e[0])).ex.push(e);
+  const out = keepEmpty ? groups : groups.filter(G => G.ex.length);
+  out.forEach(G => { G.sets = G.ex.length ? Math.max(...G.ex.map(e => parseInt(e[2], 10) || 1)) : 0; });
+  return out;
 }
+const TWIN = { LA: 'LA2', LB: 'LB2' };
 
 /* ---------- exercise swaps ---------- */
 // S.swaps['all:<original name>'] applies everywhere; S.swaps['<day>:<label>'] overrides one day.
@@ -159,6 +175,107 @@ function pickSwap(name) {
   swapCtx = null;
   save(); closeSheet(); rerender();
 }
+
+/* ---------- rearrange / re-pair ---------- */
+let reorderCtx = null;
+function openReorder(n, sk) {
+  reorderCtx = { n, sk };
+  const s = SESS[sk];
+  const twin = TWIN[sk];
+  const twinDay = twin ? DAYS.findIndex(d => d.main.includes(twin)) + 1 : 0;
+  let items = '';
+  for (const G of liftGroups(s, sk, true)) {
+    items += `<li class="rohead" data-g="${G.k}">${groupName(G.k)}</li>`;
+    for (const [id, orig, dose] of G.ex) {
+      const name = resolveEx(n, id, orig);
+      items += `<li class="roitem" data-id="${id}">
+        <span class="h" aria-hidden="true">≡</span>
+        <span class="nm"><b>${esc(name)}</b><small>${esc(dose)} · originally ${id}</small></span>
+        <button class="romv" data-act="romove" data-d="-1" aria-label="Move ${esc(name)} up">▲</button>
+        <button class="romv" data-act="romove" data-d="1" aria-label="Move ${esc(name)} down">▼</button></li>`;
+    }
+  }
+  openSheet(`<h2>Rearrange ${esc(s.t.split(' · ')[0])}</h2>
+    <p class="small muted">Drag <b>≡</b> (or use ▲▼) to change the order. Exercises under the same heading are done back to back as a superset, so moving one under another heading re-pairs it. Use Superset E or the Finisher to push something to the end.</p>
+    <ul class="ro" id="ro">${items}</ul>
+    ${twin ? `<label class="field"><span>Use this order on Day ${twinDay} too</span><input type="checkbox" id="rotwin" style="width:22px;height:22px"></label>` : ''}
+    <div class="row" style="margin-top:14px"><button class="btn ghost" data-act="roreset">Original order</button>
+    <button class="btn" data-act="sheetclose">Cancel</button>
+    <button class="btn primary" style="flex:1" data-act="rosave">Save</button></div>`);
+}
+function readReorder() {
+  const lay = {};
+  let g = 'A';
+  for (const li of $('#ro').children) {
+    if (li.classList.contains('rohead')) { g = li.dataset.g; lay[g] = []; }
+    else lay[g].push(li.dataset.id);
+  }
+  return lay;
+}
+function saveReorder() {
+  const { sk } = reorderCtx;
+  const lay = readReorder();
+  S.layouts[sk] = lay;
+  const twin = TWIN[sk];
+  if (twin && $('#rotwin') && $('#rotwin').checked) {
+    const ids = new Set(SESS[twin].ex.map(e => e[0]));
+    S.layouts[twin] = Object.fromEntries(Object.entries(lay).map(([k, v]) => [k, v.filter(id => ids.has(id))]));
+  }
+  reorderCtx = null;
+  save(); closeSheet(); rerender();
+}
+function moveRow(li, dir) {
+  const list = li.parentElement;
+  if (dir < 0) {
+    const prev = li.previousElementSibling;
+    if (!prev || prev === list.firstElementChild) return; // never above the first heading
+    list.insertBefore(li, prev);
+  } else {
+    const next = li.nextElementSibling;
+    if (next) next.after(li);
+  }
+}
+// Touch / mouse dragging by the ≡ handle.
+let drag = null;
+document.addEventListener('pointerdown', e => {
+  const h = e.target.closest && e.target.closest('.roitem .h');
+  if (!h) return;
+  e.preventDefault();
+  const li = h.closest('.roitem');
+  const list = li.parentElement;
+  drag = { li, list, startY: e.clientY, base: li.getBoundingClientRect().top, scroller: list.closest('.sheet'), id: e.pointerId };
+  li.classList.add('dragging');
+  try { h.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+});
+document.addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  e.preventDefault();
+  const { li, list, scroller } = drag;
+  const y = e.clientY;
+  const others = [...list.children].filter(x => x !== li);
+  let before = null;
+  for (const x of others) { const r = x.getBoundingClientRect(); if (y < r.top + r.height / 2) { before = x; break; } }
+  if (before === others[0]) before = others[1] || null; // stay below the first heading
+  if (before) { if (li.nextElementSibling !== before) list.insertBefore(li, before); }
+  else if (list.lastElementChild !== li) list.appendChild(li);
+  li.style.transform = '';
+  const natural = li.getBoundingClientRect().top;
+  li.style.transform = `translateY(${drag.base + (y - drag.startY) - natural}px)`;
+  if (scroller) {
+    const r = scroller.getBoundingClientRect();
+    if (y < r.top + 60) { scroller.scrollTop -= 12; drag.base -= 12; }
+    else if (y > r.bottom - 60) { scroller.scrollTop += 12; drag.base += 12; }
+  }
+}, { passive: false });
+const endDrag = () => {
+  if (!drag) return;
+  drag.li.style.transform = '';
+  drag.li.classList.remove('dragging');
+  drag = null;
+  buzz(10);
+};
+document.addEventListener('pointerup', endDrag);
+document.addEventListener('pointercancel', endDrag);
 
 // Carry over ticks saved by the first version of the app.
 (function migrate() {
@@ -233,12 +350,16 @@ const listBody = rows => `<ul class="exl">${rows.map(r => exRow(r[0], r[1], r[2]
 function liftBody(n, sk) {
   const s = SESS[sk];
   const prev = n > 7 ? n - 7 : null;
-  let html = '';
-  for (const G of liftGroups(s)) {
+  const custom = !!(S.layouts && S.layouts[sk]);
+  let html = `<div class="row between" style="margin-top:8px"><span class="tiny muted">${custom ? 'Your custom order' : 'Original order'}</span>
+    <button class="swapbtn" data-act="reorder" data-day="${n}" data-sess="${sk}">↕ Rearrange</button></div>`;
+  for (const G of liftGroups(s, sk)) {
     const rk = `${n}:${G.k}`;
     const count = Math.min(S.rounds[rk] || 0, G.sets);
-    html += `<div class="ss"><div class="ss-head"><b>${G.k === 'Fin' ? 'Finisher' : `Superset ${G.k}`}</b><span class="tiny muted">${G.sets} rounds${G.k === 'Fin' ? '' : ` · rest ${S.rest} s`}</span></div><ul class="exl">`;
-    for (const [label, orig, dose, origCue, origLoad] of G.ex) {
+    const kind = G.ex.length === 1 ? 'straight sets' : G.ex.length === 3 ? 'tri-set' : '';
+    html += `<div class="ss"><div class="ss-head"><b>${groupName(G.k)}</b><span class="tiny muted">${G.sets} rounds${kind ? ` · ${kind}` : ''}${G.k === 'Fin' ? '' : ` · rest ${S.rest} s`}</span></div><ul class="exl">`;
+    for (const [pos, [label, orig, dose, origCue, origLoad]] of G.ex.entries()) {
+      const shown = G.k === 'Fin' ? (G.ex.length > 1 ? `F${pos + 1}` : 'Fin') : `${G.k}${pos + 1}`;
       const name = resolveEx(n, label, orig);
       const swapped = name !== orig;
       const cue = swapped ? (EX[name] && EX[name].cue) || '' : origCue;
@@ -256,11 +377,13 @@ function liftBody(n, sk) {
         }
         extra = `<label class="wtl">Weight <input class="wt" inputmode="decimal" placeholder="${ph}" data-act="weight" data-key="${wk}" value="${esc(S.weights[wk] ?? '')}" aria-label="${esc(name)} weight in ${S.unit}"> ${S.unit}${ph ? `<span class="tiny muted">${s.taper ? '80% of' : 'last week:'} Day ${prev}</span>` : ''}</label>`;
       }
+      const moved = baseGroup(label) !== G.k || (G.k !== 'Fin' && shown !== label);
+      const notes = [swapped ? `Swapped from ${esc(orig)}` : '', moved ? `Moved from ${label}` : ''].filter(Boolean).join(' · ');
       if (SWAPS[orig]) {
-        extra += `<div class="swaprow">${swapped ? `<span class="tiny muted">Swapped from ${esc(orig)}</span>` : '<span></span>'}
+        extra += `<div class="swaprow"><span class="tiny muted">${notes}</span>
           <button class="swapbtn" data-act="swap" data-day="${n}" data-label="${label}" data-orig="${esc(orig)}" aria-label="Swap ${esc(name)}">⇄ Swap</button></div>`;
-      }
-      html += exRow(name, dose, cue, label, extra);
+      } else if (notes) extra += `<div class="swaprow"><span class="tiny muted">${notes}</span></div>`;
+      html += exRow(name, dose, cue, shown, extra);
     }
     html += `</ul><div class="rounds" role="group" aria-label="${G.k} rounds">`;
     for (let i = 0; i < G.sets; i++) {
@@ -622,8 +745,17 @@ function saveCheckin() {
   closeSheet(); closeRunner(); rerender();
 }
 
+function storageStatus() {
+  const ticks = Object.values(S.done).filter(Boolean).length;
+  let check = false;
+  try { check = JSON.parse(localStorage.getItem(KEY)).done !== undefined; } catch (e) { /* unreadable */ }
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  if (saveError || !check) return `<p class="note">Progress is <b>not</b> saving in this browser${saveError ? ` (${esc(saveError)})` : ''}. Private browsing does this. Open the app from the Home Screen instead.</p>`;
+  return `<p class="small muted" style="margin:4px 0 8px">✓ Saved on this device: ${ticks} session${ticks === 1 ? '' : 's'} ticked. You’re using the ${standalone ? 'Home Screen app' : 'browser tab'}. The Home Screen app and Safari keep separate progress, and nothing syncs between devices.</p>`;
+}
 function openSettings() {
   openSheet(`<h2>Settings</h2>
+    ${storageStatus()}
     <label class="field"><span>Day 1 date</span><input type="date" data-set="start" value="${S.start}"></label>
     <label class="field"><span>Weight unit</span><select data-set="unit"><option ${S.unit === 'kg' ? 'selected' : ''}>kg</option><option ${S.unit === 'lb' ? 'selected' : ''}>lb</option></select></label>
     <label class="field"><span>Superset rest</span><select data-set="rest">${[60, 75, 90].map(v => `<option value="${v}" ${S.rest === v ? 'selected' : ''}>${v} s</option>`).join('')}</select></label>
@@ -656,7 +788,7 @@ document.addEventListener('click', e => {
       if (i < count) S.rounds[k] = i;
       else {
         S.rounds[k] = i + 1;
-        const all = liftGroups(SESS[sk]).every(G => (S.rounds[`${n}:${G.k}`] || 0) >= G.sets);
+        const all = liftGroups(SESS[sk], sk).every(G => (S.rounds[`${n}:${G.k}`] || 0) >= G.sets);
         if (all) { S.done[`${n}:${sk}`] = true; restEl.hidden = true; clearInterval(restTick); ensureAudio(); beep(1046, 2); }
         else startRest();
       }
@@ -683,6 +815,17 @@ document.addEventListener('click', e => {
       break;
     case 'finishrun': openCheckin(S.timer.day); break;
     case 'checkin': openCheckin(+t.dataset.day); break;
+    case 'reorder': openReorder(+t.dataset.day, t.dataset.sess); break;
+    case 'romove': moveRow(t.closest('li'), +t.dataset.d); break;
+    case 'rosave': saveReorder(); break;
+    case 'roreset': {
+      const { sk } = reorderCtx;
+      delete S.layouts[sk];
+      const twin = TWIN[sk];
+      if (twin && $('#rotwin') && $('#rotwin').checked) delete S.layouts[twin];
+      reorderCtx = null;
+      save(); closeSheet(); rerender(); break;
+    }
     case 'swap': openSwap(+t.dataset.day, t.dataset.label, t.dataset.orig); break;
     case 'swapscope': swapCtx.scope = t.dataset.v; drawSwap(); break;
     case 'swappick': pickSwap(t.dataset.name); break;
@@ -744,9 +887,12 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && !sheetEl.h
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     if (!runEl.hidden) { keepAwake(); drawRun(); }
-    if (sheetEl.hidden && !document.activeElement?.matches?.('input')) rerender(); // day may have rolled over
+    // Re-read saved progress (another tab or window may have changed it), and catch a new day.
+    if (sheetEl.hidden && !drag && !document.activeElement?.matches?.('input')) { S = load(); rerender(); }
   }
 });
+// Keep two open copies of the app in step, so one can't overwrite the other's ticks.
+addEventListener('storage', e => { if (e.key === KEY && sheetEl.hidden && !drag) { S = load(); rerender(); } });
 addEventListener('hashchange', () => { route(); scrollTo(0, 0); });
 
 let deferredInstall = null;

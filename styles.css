@@ -154,6 +154,18 @@ details[open] > summary::after { content: "Hide the session"; font-size: 15px; }
 .swapopt .tg { margin-top: 6px; }
 .swapopt.on { border-color: var(--red); box-shadow: 0 0 0 1.5px var(--red) inset; }
 
+/* rearrange */
+.ro { list-style: none; margin: 12px 0 0; padding: 0; }
+.rohead { font: 800 17px var(--display); color: var(--red); padding: 12px 2px 6px; border-top: 2px solid var(--soft); }
+.ro > .rohead:first-child { border-top: 0; padding-top: 2px; }
+.roitem { display: grid; grid-template-columns: 40px 1fr 40px 40px; align-items: center; gap: 4px; background: var(--card); border: 1.5px solid var(--line); border-radius: 10px; padding: 6px 4px; margin-bottom: 6px; position: relative; }
+.roitem .h { display: grid; place-items: center; height: 40px; font-size: 22px; color: var(--mut); touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.roitem .nm { display: flex; flex-direction: column; line-height: 1.25; }
+.roitem .nm small { color: var(--mut); font-size: 12.5px; }
+.romv { width: 40px; height: 40px; border: 0; border-radius: 8px; background: var(--soft); color: var(--blue); font-size: 13px; }
+.roitem.dragging { z-index: 5; border-color: var(--red); box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+.roitem.dragging .h { cursor: grabbing; }
+
 /* supersets */
 .ss { margin-top: 12px; padding-top: 10px; border-top: 2px solid var(--soft); }
 .ss-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
