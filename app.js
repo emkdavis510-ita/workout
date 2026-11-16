@@ -27,10 +27,73 @@ function load() {
   return fresh();
 }
 let S = load();
-let saveError = null;
+const APP_VERSION = '8';
+
+/* Two copies of your progress: localStorage (instant) and IndexedDB (written as a committed
+   transaction, so it survives the app being closed straight after a tap). On launch the
+   newer of the two wins. */
+const idb = {
+  db: null,
+  open() {
+    if (this.db) return Promise.resolve(this.db);
+    return new Promise((res, rej) => {
+      if (!('indexedDB' in window)) return rej(new Error('no indexedDB'));
+      const r = indexedDB.open('skiprep', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('kv');
+      r.onsuccess = () => { this.db = r.result; res(this.db); };
+      r.onerror = () => rej(r.error);
+    });
+  },
+  async get() {
+    const db = await this.open();
+    return new Promise((res, rej) => {
+      const q = db.transaction('kv').objectStore('kv').get(KEY);
+      q.onsuccess = () => res(q.result || null);
+      q.onerror = () => rej(q.error);
+    });
+  },
+  async put(text) {
+    const db = await this.open();
+    return new Promise((res, rej) => {
+      const tx = db.transaction('kv', 'readwrite');
+      tx.objectStore('kv').put(text, KEY);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
+  },
+};
+let saveError = null, idbOK = null;
 function save() {
-  try { localStorage.setItem(KEY, JSON.stringify(S)); saveError = null; }
+  S.savedAt = Date.now();
+  const text = JSON.stringify(S);
+  try { localStorage.setItem(KEY, text); saveError = null; }
   catch (e) { saveError = String(e && e.name || e); }
+  idb.put(text).then(() => { idbOK = true; }, () => { idbOK = false; });
+}
+// Pick up the IndexedDB copy if it is newer than localStorage (or localStorage was lost).
+async function reconcileStorage() {
+  try {
+    const text = await idb.get();
+    idbOK = true;
+    // No backup yet: write one now (this also remembers the Day 1 date on a first launch).
+    if (!text) { save(); return false; }
+    const other = JSON.parse(text);
+    if ((other.savedAt || 0) > (S.savedAt || 0)) {
+      S = Object.assign(fresh(), other, { ladder: Object.assign(fresh().ladder, other.ladder) });
+      try { localStorage.setItem(KEY, text); } catch (e) { /* ignore */ }
+      return true;
+    }
+  } catch (e) { idbOK = false; }
+  return false;
+}
+let toastTimer = null;
+function savedToast(text = 'Saved') {
+  let el = $('#toast');
+  if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+  el.textContent = `✓ ${text}`;
+  el.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('on'), 1200);
 }
 // Ask the browser to keep this app's data even when storage runs low.
 try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) { /* ignore */ }
@@ -279,6 +342,7 @@ document.addEventListener('pointercancel', endDrag);
 
 // Carry over ticks saved by the first version of the app.
 (function migrate() {
+  let changed = false;
   for (const k of Object.keys(S.done)) {
     const m = k.match(/^(\d+):(morning|main|evening)$/);
     if (!m) continue;
@@ -286,9 +350,14 @@ document.addEventListener('pointercancel', endDrag);
     const nk = m[2] === 'morning' ? `${n}:am` : m[2] === 'evening' ? `${n}:pm` : (blocks(n).find(b => b.slot === 'main') || {}).key;
     if (nk && S.done[k] && n <= N_DAYS) S.done[nk] = true;
     delete S.done[k];
+    changed = true;
   }
-  if (typeof S.ladder.rung !== 'number' || S.ladder.rung > LADDER.length - 1) S.ladder.rung = Math.min(LADDER.length - 1, S.ladder.rung | 0);
-  save();
+  if (typeof S.ladder.rung !== 'number' || S.ladder.rung > LADDER.length - 1) {
+    S.ladder.rung = Math.min(LADDER.length - 1, S.ladder.rung | 0);
+    changed = true;
+  }
+  // Only save when something changed, so a wiped copy never looks newer than the backup.
+  if (changed) save();
 })();
 
 /* ---------- rendering ---------- */
@@ -750,9 +819,13 @@ function storageStatus() {
   let check = false;
   try { check = JSON.parse(localStorage.getItem(KEY)).done !== undefined; } catch (e) { /* unreadable */ }
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-  if (saveError || !check) return `<p class="note">Progress is <b>not</b> saving in this browser${saveError ? ` (${esc(saveError)})` : ''}. Private browsing does this. Open the app from the Home Screen instead.</p>`;
-  return `<p class="small muted" style="margin:4px 0 8px">✓ Saved on this device: ${ticks} session${ticks === 1 ? '' : 's'} ticked. You’re using the ${standalone ? 'Home Screen app' : 'browser tab'}. The Home Screen app and Safari keep separate progress, and nothing syncs between devices.</p>`;
+  const when = S.savedAt ? new Date(S.savedAt).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : 'not yet';
+  const diag = `<p class="tiny muted" style="margin-bottom:8px">Version ${APP_VERSION} · ${standalone ? 'Home Screen app' : 'browser tab'} · last saved ${when} · backup copy ${idbOK === true ? 'OK' : idbOK === false ? 'unavailable' : 'checking'}${storagePersisted === true ? ' · protected from clean-up' : ''}</p>`;
+  if (saveError || !check) return `<p class="note">Progress is <b>not</b> saving in this browser${saveError ? ` (${esc(saveError)})` : ''}. Private browsing does this. Open the app from the Home Screen instead.</p>${diag}`;
+  return `<p class="small muted" style="margin:4px 0 4px">✓ Saved on this device: ${ticks} session${ticks === 1 ? '' : 's'} ticked. The Home Screen app and Safari keep separate progress, and nothing syncs between devices.</p>${diag}`;
 }
+let storagePersisted = null;
+try { navigator.storage && navigator.storage.persisted && navigator.storage.persisted().then(v => { storagePersisted = v; }); } catch (e) { /* ignore */ }
 function openSettings() {
   openSheet(`<h2>Settings</h2>
     ${storageStatus()}
@@ -780,7 +853,7 @@ document.addEventListener('click', e => {
       const k = t.dataset.key;
       S.done[k] = !S.done[k];
       if (S.done[k]) buzz(15);
-      save(); rerender(); break;
+      save(); rerender(); savedToast(S.done[k] ? 'Saved' : 'Unticked'); break;
     }
     case 'round': {
       const k = t.dataset.key, i = +t.dataset.i, n = +t.dataset.day, sk = t.dataset.sess;
@@ -901,6 +974,10 @@ addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInsta
 /* ---------- boot ---------- */
 route();
 if (S.timer) openRunner(false);
+reconcileStorage().then(changed => { if (changed && sheetEl.hidden && !drag) rerender(); });
+// Save again as the app goes to the background, so the latest state is flushed to disk.
+addEventListener('pagehide', () => { if (S.savedAt) save(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && S.savedAt) save(); });
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   // When an update installs, reload once so you see it straight away (but never in the middle of a run).
   const hadController = !!navigator.serviceWorker.controller;

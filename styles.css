@@ -154,6 +154,10 @@ details[open] > summary::after { content: "Hide the session"; font-size: 15px; }
 .swapopt .tg { margin-top: 6px; }
 .swapopt.on { border-color: var(--red); box-shadow: 0 0 0 1.5px var(--red) inset; }
 
+/* saved toast */
+.toast { position: fixed; left: 50%; top: calc(12px + env(safe-area-inset-top)); transform: translate(-50%, -20px); opacity: 0; z-index: 50; background: var(--blue); color: var(--on-blue); font-weight: 700; font-size: 14px; padding: 8px 16px; border-radius: 99px; box-shadow: 0 6px 20px rgba(0,0,0,.25); transition: opacity .2s, transform .2s; pointer-events: none; }
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+
 /* rearrange */
 .ro { list-style: none; margin: 12px 0 0; padding: 0; }
 .rohead { font: 800 17px var(--display); color: var(--red); padding: 12px 2px 6px; border-top: 2px solid var(--soft); }
