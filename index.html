@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Ski Prep 14</title>
+  <meta name="description" content="14 days to first tracks: daily yoga and Pilates, single-leg lifts, and a walk–run ladder.">
+  <meta name="theme-color" content="#f4f6f8" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0d141b" media="(prefers-color-scheme: dark)">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Ski Prep">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <div>
+        <div class="eyebrow">Ski Season Prep</div>
+        <h1 id="title">14 days to first tracks</h1>
+      </div>
+      <button class="icon-btn" data-act="settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.5 7.5 0 0 0-1.7-1L15 3h-4l-.4 2.7a7.5 7.5 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.5 7.5 0 0 0 1.7 1L11 21h4l.4-2.7a7.5 7.5 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="view" tabindex="-1"></main>
+
+  <div id="rest" class="rest" hidden></div>
+  <div id="runner" class="runner" hidden></div>
+  <div id="sheet" class="sheet-wrap" hidden></div>
+
+  <nav class="tabs" aria-label="Sections">
+    <a href="#today" data-tab="today"><span class="ti">☀︎</span>Today</a>
+    <a href="#plan" data-tab="plan"><span class="ti">▦</span>Plan</a>
+    <a href="#ladder" data-tab="ladder"><span class="ti">≡</span>Ladder</a>
+    <a href="#guide" data-tab="guide"><span class="ti">ⓘ</span>Guide</a>
+  </nav>
+
+  <script src="plan.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
