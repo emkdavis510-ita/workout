@@ -1,5 +1,5 @@
 // Bump VERSION whenever you change any file so phones pick up the update.
-const VERSION = 'skiprep-v3';
+const VERSION = 'skiprep-v4';
 const FONT_CACHE = 'skiprep-fonts';
 const ASSETS = [
   './',

@@ -83,6 +83,86 @@ const EX = {
   'Tennis': { m: 'Legs, hips, core, reaction speed', ski: 'Split steps and quick direction changes train the reactions you use when terrain changes under you.' },
 };
 
+/* ---------- Lift swaps ---------- */
+// Alternatives for each lift exercise: [name, why you might pick it]. Each keeps the slot's sets and reps.
+const SWAPS = {
+  'Bulgarian split squat': [['Reverse lunge', 'Easier balance'], ['Split squat, back foot on floor', 'Knee-friendly'], ['Goblet squat', 'Both legs']],
+  'Single-arm dumbbell row': [['Chest-supported dumbbell row', 'Back-friendly'], ['Band row', 'No weights'], ['Inverted row', 'Bodyweight']],
+  'Single-leg RDL, opposite hand': [['Kickstand RDL', 'Easier balance'], ['Romanian deadlift', 'Both legs'], ['Single-leg hip hinge, hand on wall', 'No weights']],
+  'Single-leg RDL': [['Kickstand RDL', 'Easier balance'], ['Romanian deadlift', 'Both legs'], ['Single-leg hip hinge, hand on wall', 'No weights']],
+  'Half-kneeling overhead press': [['Landmine press', 'Shoulder-friendly'], ['Seated dumbbell press', 'More stable'], ['Pike push-up', 'Bodyweight']],
+  'Hip thrust': [['Glute bridge', 'No bench'], ['Single-leg glute bridge', 'Bodyweight'], ['Cable pull-through', 'Back-friendly']],
+  'Pallof press': [['Band Pallof press', 'No cable'], ['Dead bug', 'No equipment'], ['Bird dog', 'Gentler']],
+  'Pallof press with a step out': [['Band Pallof press', 'No cable'], ['Dead bug', 'No equipment'], ['Bird dog', 'Gentler']],
+  'Lateral step-up': [['Lateral lunge', 'No box'], ['Curtsy lunge', 'More glute'], ['Banded lateral walk', 'Knee-friendly']],
+  'Lateral bound to stick': [['Lateral line hop', 'Lower impact'], ['Skater step', 'No jumping'], ['Banded lateral walk', 'Knee-friendly']],
+  'Face pull': [['Band pull-apart', 'No cable'], ['Reverse dumbbell fly', 'Dumbbells'], ['Prone Y-T raise', 'No equipment']],
+  'Wall sit into ski tuck': [['Ski-stance squat hold', 'No wall'], ['Spanish squat', 'Knee-friendly'], ['Split squat hold', 'Single leg']],
+  'Step-up, high box': [['Low box step-up', 'Knee-friendly'], ['Reverse lunge', 'No box'], ['Bulgarian split squat', 'Harder']],
+  'Lat pulldown': [['Band lat pulldown', 'No machine'], ['Assisted pull-up', 'Harder'], ['Single-arm dumbbell row', 'Dumbbells']],
+  'Cossack squat': [['Lateral lunge', 'Less range'], ['Sumo squat', 'Both legs'], ['Side-to-side squat shift', 'Bodyweight']],
+  'Skater bound, stick it': [['Skater step', 'No jumping'], ['Lateral line hop', 'Lower impact'], ['Banded lateral walk', 'Knee-friendly']],
+  'B-stance hip thrust': [['Single-leg glute bridge', 'No bench'], ['Hip thrust', 'Both legs'], ['Single-leg hip thrust', 'Harder']],
+  'Copenhagen plank, short lever': [['Side-lying adductor lift', 'Gentler'], ['Adductor ball squeeze', 'Easiest'], ['Side plank', 'Knee-friendly']],
+  'Copenhagen plank': [['Side-lying adductor lift', 'Gentler'], ['Adductor ball squeeze', 'Easiest'], ['Side plank', 'Knee-friendly']],
+  'Single-leg stand + cable chop': [['Single-leg stand + band chop', 'No cable'], ['Single-leg stand + med ball rotation', 'Med ball'], ['Single-leg balance, eyes closed', 'No equipment']],
+  'Lateral raise': [['Band lateral raise', 'No dumbbells'], ['Cable lateral raise', 'Smoother'], ['Leaning lateral raise', 'More range']],
+  'Ski tuck with weight shifts': [['Ski-stance squat hold', 'Simpler'], ['Skater step', 'Moving'], ['Wall sit into ski tuck', 'Supported']],
+};
+
+// Extra exercises used as swaps. cue = how to do it; load = shows a weight box.
+Object.assign(EX, {
+  'Reverse lunge': { m: 'Quads, glutes', ski: 'Single-leg strength with an easier balance demand than split squats.', cue: 'Step back, lower the back knee softly, drive up through the front heel.', load: true },
+  'Split squat, back foot on floor': { m: 'Quads, glutes, adductors', ski: 'Same outside-ski strength with less load on the front knee.', cue: 'Stay tall, lower straight down, front knee tracks over the toes.', load: true },
+  'Goblet squat': { m: 'Quads, glutes, core', ski: 'Leg strength in a ski-like bent-knee position, with both legs sharing the load.', cue: 'Hold the weight at your chest, sit between your heels, chest up.', load: true },
+  'Chest-supported dumbbell row': { m: 'Lats, mid-back, rear shoulder', ski: 'Upper-back strength for poling and posture, without loading the lower back.', cue: 'Lie chest-down on an incline bench and row both dumbbells to the hips.', load: true },
+  'Band row': { m: 'Lats, mid-back', ski: 'Upper-back strength for poling and getting up after a fall.', cue: 'Anchor the band at chest height, squeeze shoulder blades together.', load: false },
+  'Inverted row': { m: 'Lats, mid-back, biceps, core', ski: 'Pulling strength plus whole-body bracing.', cue: 'Under a bar or table, body straight as a plank, pull chest to the bar.', load: false },
+  'Kickstand RDL': { m: 'Hamstrings, glutes', ski: 'Hamstring strength that protects the ACL, with the back toe helping you balance.', cue: 'Most weight in the front leg, back toe lightly on the floor, hinge at the hips.', load: true },
+  'Romanian deadlift': { m: 'Hamstrings, glutes, lower back', ski: 'Strong hamstrings and glutes for a balanced, centred stance.', cue: 'Soft knees, push the hips back, weights close to the legs.', load: true },
+  'Single-leg hip hinge, hand on wall': { m: 'Hamstrings, glutes, foot stabilisers', ski: 'Single-leg balance and hip hinge, supported so you can focus on form.', cue: 'One hand on the wall, hinge forward on one leg, hips level.', load: false },
+  'Landmine press': { m: 'Shoulders, upper chest, core', ski: 'Pressing strength for pushing up off the snow, easy on the shoulders.', cue: 'Press the bar end up and forward from the shoulder, ribs down.', load: true },
+  'Seated dumbbell press': { m: 'Shoulders, triceps', ski: 'Shoulder strength for poling and getting up after a fall.', cue: 'Back against the bench, press up without arching.', load: true },
+  'Pike push-up': { m: 'Shoulders, triceps, core', ski: 'Overhead pushing strength with no equipment.', cue: 'Hips high in an upside-down V, lower your head toward the floor.', load: false },
+  'Glute bridge': { m: 'Glutes, hamstrings', ski: 'Hip drive to stay forward and centred over your skis.', cue: 'Back on the floor, weight on the hips, squeeze and pause at the top.', load: true },
+  'Single-leg glute bridge': { m: 'Glutes, hamstrings, pelvic stability', ski: 'Single-leg hip strength, matching how the outside ski carries the load.', cue: 'One foot down, other knee to chest, keep the hips level.', load: false },
+  'Cable pull-through': { m: 'Glutes, hamstrings', ski: 'Hip-hinge power with very little load on the back.', cue: 'Face away from a low cable, hinge back, then drive the hips through.', load: true },
+  'Band Pallof press': { m: 'Obliques, deep core (anti-rotation)', ski: 'Keeps the upper body quiet and facing downhill while the legs turn.', cue: 'Band anchored at chest height, press straight out and resist the pull.', load: false },
+  'Dead bug': { m: 'Deep abdominals, hip flexors', ski: 'A stable trunk while arms and legs move, like absorbing bumps.', cue: 'Low back pressed down, lower opposite arm and leg slowly.', load: false },
+  'Bird dog': { m: 'Deep core, glutes, back extensors', ski: 'Anti-rotation control and a stable spine, gently.', cue: 'On all fours, reach opposite arm and leg long, no hip rotation.', load: false },
+  'Lateral lunge': { m: 'Adductors, quads, glutes', ski: 'Strength in a wide side position, for edge changes and wide stances.', cue: 'Step wide, sit back into one hip, other leg straight.', load: true },
+  'Curtsy lunge': { m: 'Glute medius, quads, adductors', ski: 'Hip stability across the body, like loading the inside edge.', cue: 'Step back and across, front knee stays over the toes.', load: true },
+  'Banded lateral walk': { m: 'Glute medius, hip abductors', ski: 'Keeps the knees from caving in, with no impact.', cue: 'Band around the knees or ankles, quarter squat, small steps sideways.', load: false },
+  'Lateral line hop': { m: 'Calves, glutes, ankle stabilisers', ski: 'Quick feet and stable landings, with less force than bounds.', cue: 'Hop side to side over a line on one leg, land quietly.', load: false },
+  'Skater step': { m: 'Glutes, adductors, quads', ski: 'Rehearses the side-to-side weight shift of a turn without jumping.', cue: 'Big step sideways onto one leg, sink, hold 1 s, switch.', load: false },
+  'Band pull-apart': { m: 'Rear delts, mid traps', ski: 'Posture and shoulder health for poling and wearing a backpack.', cue: 'Arms straight, pull the band apart to your chest.', load: false },
+  'Reverse dumbbell fly': { m: 'Rear delts, mid-back', ski: 'Upper-back strength for posture on long days.', cue: 'Hinge forward, open the arms wide with a slight elbow bend.', load: true },
+  'Prone Y-T raise': { m: 'Lower traps, rear delts', ski: 'Shoulder blade control for a strong, upright upper body.', cue: 'Lie face down, lift arms into a Y, then a T, thumbs up.', load: false },
+  'Ski-stance squat hold': { m: 'Quads, glutes (isometric)', ski: 'Leg endurance in your exact ski position.', cue: 'Feet hip-width, shins forward, hips back, hands forward like holding poles.', load: false },
+  'Spanish squat': { m: 'Quads (isometric)', ski: 'Strong quads with very little strain on the knee joint.', cue: 'Band behind the knees anchored in front, sit back with upright shins.', load: false },
+  'Split squat hold': { m: 'Quads, glutes (isometric)', ski: 'Single-leg endurance, like a long turn on the outside ski.', cue: 'Hold the bottom of a split squat, front knee over the toes.', load: false },
+  'Low box step-up': { m: 'Glutes, quads', ski: 'Single-leg strength with less knee bend.', cue: 'Box around mid-shin height, drive through the heel.', load: true },
+  'Band lat pulldown': { m: 'Lats, mid-back', ski: 'Pulling strength for poling across flats.', cue: 'Band anchored high, pull elbows down to your sides.', load: false },
+  'Assisted pull-up': { m: 'Lats, biceps, mid-back', ski: 'Strength to haul yourself up after a fall.', cue: 'Use a band or machine for help, chest to the bar.', load: true },
+  'Sumo squat': { m: 'Adductors, glutes, quads', ski: 'Inner-thigh and hip strength in a wide stance.', cue: 'Wide stance, toes out, knees track over the toes.', load: true },
+  'Side-to-side squat shift': { m: 'Adductors, quads, hip mobility', ski: 'Moves weight from leg to leg in a low position, like linked turns.', cue: 'Wide stance, shift your weight from one bent knee to the other.', load: false },
+  'Single-leg hip thrust': { m: 'Glutes, hamstrings', ski: 'Full single-leg hip strength for the outside ski.', cue: 'Shoulders on the bench, one foot down, keep the hips level.', load: true },
+  'Side-lying adductor lift': { m: 'Adductors (inner thigh)', ski: 'Inner-thigh strength to keep the skis together, gently.', cue: 'Lie on your side, top foot in front, lift the bottom leg.', load: false },
+  'Adductor ball squeeze': { m: 'Adductors (inner thigh)', ski: 'Inner-thigh strength that protects the knee, with no strain.', cue: 'On your back, knees bent, squeeze a ball or pillow for 10 s.', load: false },
+  'Side plank': { m: 'Obliques, glute medius, shoulder', ski: 'Side core and hip strength to hold an edge.', cue: 'Elbow under shoulder, straight line from head to feet.', load: false },
+  'Single-leg stand + band chop': { m: 'Ankle and hip stabilisers, obliques', ski: 'One-leg balance while the upper body rotates, like a pole plant.', cue: 'Band anchored high, chop down across the body, standing on one leg.', load: false },
+  'Single-leg stand + med ball rotation': { m: 'Ankle and hip stabilisers, obliques', ski: 'Balance against a rotating upper body.', cue: 'Stand on one leg, rotate a ball from hip to opposite shoulder.', load: true },
+  'Single-leg balance, eyes closed': { m: 'Ankle stabilisers, foot muscles', ski: 'Balance without relying on your eyes, useful in flat light.', cue: 'Stand on one leg, soft knee, close your eyes for 20–30 s.', load: false },
+  'Band lateral raise': { m: 'Side delts', ski: 'Shoulder endurance for poling.', cue: 'Stand on the band, raise arms to shoulder height, slowly down.', load: false },
+  'Cable lateral raise': { m: 'Side delts', ski: 'Shoulder endurance for poling, with steady tension.', cue: 'Low cable across the body, raise to shoulder height.', load: true },
+  'Leaning lateral raise': { m: 'Side delts', ski: 'Shoulder strength through a bigger range.', cue: 'Hold a post and lean away, raise the free arm.', load: true },
+});
+// Originals that also appear as swaps need a cue and a weight setting.
+Object.assign(EX['Bulgarian split squat'], { cue: '3 seconds down. Front shin fairly upright to bias the glute.', load: true });
+Object.assign(EX['Single-arm dumbbell row'], { cue: 'Brace on a bench and pull to the hip.', load: true });
+Object.assign(EX['Hip thrust'], { cue: 'Pause 2 s at the top with your chin tucked.', load: true });
+Object.assign(EX['Wall sit into ski tuck'], { cue: 'Half the time on the wall, then step off and hold a ski tuck.', load: false });
+
 /* ---------- Sessions (from the original plan) ---------- */
 const SESS = {
   M1: { t: 'Morning flow', d: '12 min',

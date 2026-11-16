@@ -16,7 +16,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 
 /* ---------- state ---------- */
 function fresh() {
-  return { start: todayISO(), unit: 'kg', rest: 75, voice: true, done: {}, rounds: {}, weights: {},
+  return { start: todayISO(), unit: 'kg', rest: 75, voice: true, done: {}, rounds: {}, weights: {}, swaps: {},
     ladder: { rung: 0, log: [], pending: null }, timer: null };
 }
 function load() {
@@ -94,6 +94,70 @@ function liftGroups(s) {
     G.ex.push(e);
   }
   return g;
+}
+
+/* ---------- exercise swaps ---------- */
+// S.swaps['all:<original name>'] applies everywhere; S.swaps['<day>:<label>'] overrides one day.
+const liftSessOf = n => DAYS[n - 1].main.find(m => typeof m === 'string' && SESS[m].lift);
+function origAt(n, label) {
+  const sk = n >= 1 && n <= N_DAYS ? liftSessOf(n) : null;
+  const e = sk && SESS[sk].ex.find(x => x[0] === label);
+  return e ? e[1] : null;
+}
+function resolveEx(n, label, orig) {
+  return S.swaps[`${n}:${label}`] || S.swaps[`all:${orig}`] || orig;
+}
+const weightKey = (n, label, name, orig) => (name === orig ? `${n}:${label}` : `${n}:${label}~${name}`);
+function daysWith(orig) {
+  const out = [];
+  for (let n = 1; n <= N_DAYS; n++) {
+    const sk = liftSessOf(n);
+    if (sk) for (const e of SESS[sk].ex) if (e[1] === orig) out.push({ n, label: e[0] });
+  }
+  return out;
+}
+
+let swapCtx = null;
+function openSwap(n, label, orig) {
+  const days = daysWith(orig);
+  // Default to "every time" unless this day already has its own swap.
+  const scope = days.length > 1 && S.swaps[`${n}:${label}`] ? 'day' : 'all';
+  swapCtx = { n, label, orig, scope };
+  drawSwap();
+}
+function drawSwap() {
+  const { n, label, orig, scope } = swapCtx;
+  const cur = resolveEx(n, label, orig);
+  const days = daysWith(orig);
+  const opts = [[orig, 'Original'], ...SWAPS[orig]];
+  const pressed = v => `aria-pressed="${scope === v}"`;
+  openSheet(`<h2>Swap ${label}</h2>
+    <p class="small muted">Now doing <b>${esc(cur)}</b>. Each option works the same muscles and keeps the same sets and reps.</p>
+    ${days.length > 1 ? `<div class="q"><p>Apply to</p><div class="seg">
+      <button data-act="swapscope" data-v="day" ${pressed('day')}>Day ${n} only</button>
+      <button data-act="swapscope" data-v="all" ${pressed('all')}>Days ${days.map(d => d.n).join(' & ')}</button></div></div>` : ''}
+    <ul class="swapl">${opts.map(([nm, why]) => {
+      const i = EX[nm] || {};
+      return `<li><button class="swapopt ${nm === cur ? 'on' : ''}" data-act="swappick" data-name="${esc(nm)}" aria-pressed="${nm === cur}">
+        <span class="row between"><b>${esc(nm)}</b><span class="chip ${nm === orig ? 'lift' : ''}">${esc(why)}</span></span>
+        ${i.m ? `<span class="tg"><b>Targets</b>${esc(i.m)}</span>` : ''}${i.ski ? `<span class="tg sk"><b>On skis</b>${esc(i.ski)}</span>` : ''}
+      </button></li>`;
+    }).join('')}</ul>
+    <button class="btn block" style="margin-top:12px" data-act="sheetclose">Cancel</button>`);
+}
+function pickSwap(name) {
+  const { n, label, orig, scope } = swapCtx;
+  const g = `all:${orig}`;
+  if (scope === 'day') {
+    const fallback = S.swaps[g] || orig;
+    if (name === fallback) delete S.swaps[`${n}:${label}`];
+    else S.swaps[`${n}:${label}`] = name;
+  } else {
+    if (name === orig) delete S.swaps[g]; else S.swaps[g] = name;
+    for (const d of daysWith(orig)) delete S.swaps[`${d.n}:${d.label}`];
+  }
+  swapCtx = null;
+  save(); closeSheet(); rerender();
 }
 
 // Carry over ticks saved by the first version of the app.
@@ -174,16 +238,27 @@ function liftBody(n, sk) {
     const rk = `${n}:${G.k}`;
     const count = Math.min(S.rounds[rk] || 0, G.sets);
     html += `<div class="ss"><div class="ss-head"><b>${G.k === 'Fin' ? 'Finisher' : `Superset ${G.k}`}</b><span class="tiny muted">${G.sets} rounds${G.k === 'Fin' ? '' : ` · rest ${S.rest} s`}</span></div><ul class="exl">`;
-    for (const [label, name, dose, cue, load] of G.ex) {
+    for (const [label, orig, dose, origCue, origLoad] of G.ex) {
+      const name = resolveEx(n, label, orig);
+      const swapped = name !== orig;
+      const cue = swapped ? (EX[name] && EX[name].cue) || '' : origCue;
+      const load = swapped ? !!(EX[name] && EX[name].load) : origLoad;
       let extra = '';
       if (load) {
-        const wk = `${n}:${label}`;
+        const wk = weightKey(n, label, name, orig);
         let ph = '';
-        if (prev) {
-          const pw = parseFloat(S.weights[`${prev}:${label}`]);
+        const prevOrig = prev && origAt(prev, label);
+        if (prevOrig) {
+          const prevName = resolveEx(prev, label, prevOrig);
+          const same = prevName === name || (prevName === prevOrig && name === orig);
+          const pw = same ? parseFloat(S.weights[weightKey(prev, label, prevName, prevOrig)]) : NaN;
           if (!isNaN(pw)) ph = s.taper ? `~${Math.round(pw * 0.8 * 2) / 2}` : `${pw}`;
         }
         extra = `<label class="wtl">Weight <input class="wt" inputmode="decimal" placeholder="${ph}" data-act="weight" data-key="${wk}" value="${esc(S.weights[wk] ?? '')}" aria-label="${esc(name)} weight in ${S.unit}"> ${S.unit}${ph ? `<span class="tiny muted">${s.taper ? '80% of' : 'last week:'} Day ${prev}</span>` : ''}</label>`;
+      }
+      if (SWAPS[orig]) {
+        extra += `<div class="swaprow">${swapped ? `<span class="tiny muted">Swapped from ${esc(orig)}</span>` : '<span></span>'}
+          <button class="swapbtn" data-act="swap" data-day="${n}" data-label="${label}" data-orig="${esc(orig)}" aria-label="Swap ${esc(name)}">⇄ Swap</button></div>`;
       }
       html += exRow(name, dose, cue, label, extra);
     }
@@ -608,6 +683,9 @@ document.addEventListener('click', e => {
       break;
     case 'finishrun': openCheckin(S.timer.day); break;
     case 'checkin': openCheckin(+t.dataset.day); break;
+    case 'swap': openSwap(+t.dataset.day, t.dataset.label, t.dataset.orig); break;
+    case 'swapscope': swapCtx.scope = t.dataset.v; drawSwap(); break;
+    case 'swappick': pickSwap(t.dataset.name); break;
     case 'ci': checkin[t.dataset.k] = t.dataset.v === 'true'; drawCheckin(); break;
     case 'cisave': saveCheckin(); break;
     case 'ache': {

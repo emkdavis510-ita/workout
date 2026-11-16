@@ -145,6 +145,15 @@ details[open] > summary::after { content: "Hide the session"; font-size: 15px; }
 .wt { width: 80px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--soft); color: var(--ink); text-align: right; font-size: 16px; }
 .wt::placeholder { color: var(--mut); opacity: .75; }
 
+/* swaps */
+.swaprow { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+.swapbtn { border: 1.5px solid var(--line); background: var(--card); color: var(--blue); border-radius: 99px; padding: 6px 12px; font-weight: 600; font-size: 14px; min-height: 36px; white-space: nowrap; }
+.swapl { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.swapopt { width: 100%; text-align: left; display: block; border: 1.5px solid var(--line); background: var(--card); border-radius: 12px; padding: 12px; }
+.swapopt > .row b { font-size: 16px; }
+.swapopt .tg { margin-top: 6px; }
+.swapopt.on { border-color: var(--red); box-shadow: 0 0 0 1.5px var(--red) inset; }
+
 /* supersets */
 .ss { margin-top: 12px; padding-top: 10px; border-top: 2px solid var(--soft); }
 .ss-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
