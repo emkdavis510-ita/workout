@@ -678,5 +678,13 @@ addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInsta
 route();
 if (S.timer) openRunner(false);
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  // When an update installs, reload once so you see it straight away (but never in the middle of a run).
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading || S.timer) return;
+    reloading = true;
+    location.reload();
+  });
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
