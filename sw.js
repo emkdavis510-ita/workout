@@ -1,5 +1,6 @@
 // Bump VERSION whenever you change any file so phones pick up the update.
-const VERSION = 'skiprep-v1';
+const VERSION = 'skiprep-v2';
+const FONT_CACHE = 'skiprep-fonts';
 const ASSETS = [
   './',
   'index.html',
@@ -20,7 +21,7 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k))))
+      .then(keys => Promise.all(keys.filter(k => k !== VERSION && k !== FONT_CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -28,7 +29,24 @@ self.addEventListener('activate', e => {
 // Stale-while-revalidate: answer from cache instantly, refresh the cache in the background.
 self.addEventListener('fetch', e => {
   const req = e.request;
-  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  if (req.method !== 'GET') return;
+  const host = new URL(req.url).hostname;
+
+  // Google Fonts: cache the first time they load so the app keeps its look offline.
+  if (host === 'fonts.googleapis.com' || host === 'fonts.gstatic.com') {
+    e.respondWith(
+      caches.open(FONT_CACHE).then(async cache => {
+        const hit = await cache.match(req);
+        if (hit) return hit;
+        const res = await fetch(req);
+        if (res.ok || res.type === 'opaque') cache.put(req, res.clone());
+        return res;
+      }).catch(() => fetch(req))
+    );
+    return;
+  }
+
+  if (new URL(req.url).origin !== location.origin) return;
   e.respondWith(
     caches.open(VERSION).then(async cache => {
       const cached = await cache.match(req, { ignoreSearch: true }) ||

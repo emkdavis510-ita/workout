@@ -1,123 +1,240 @@
-// All plan content lives here. Edit this file to change exercises, sessions or the ladder.
+// All plan content lives here. Edit this file to change sessions, exercises, or the ladder.
+// Session exercise rows: [name, dose, cue]. Lift rows: [label, name, dose, cue, logsWeight].
 
-const LADDER = [
-  // Each rung: repeat (run minutes, walk minutes) `reps` times, after a 5-min warm-up walk, before a 5-min cool-down walk.
-  { run: 1, walk: 2, reps: 6 },
-  { run: 2, walk: 2, reps: 6 },
-  { run: 3, walk: 2, reps: 5 },
-  { run: 5, walk: 1.5, reps: 4 },
-  { run: 8, walk: 1, reps: 3 },
-  { run: 12, walk: 1, reps: 2 },
-  { run: 25, walk: 0, reps: 1 },
-];
+/* ---------- Exercise library: what each one targets and why it matters on skis ---------- */
+const EX = {
+  // Morning flow
+  'Sun Salutation A': { m: 'Hamstrings, calves, shoulders, spinal mobility', ski: 'Warms the whole chain and frees up the hamstrings and hips you fold through in an athletic ski stance.' },
+  'Sun Salutation B': { m: 'Quads, glutes, shoulders, full body', ski: 'Chair and warrior I hold you in a bent-knee stance, building the leg endurance a long run asks for.' },
+  'Pelvic curl': { m: 'Glutes, hamstrings, deep core', ski: 'Teaches pelvis control, which keeps your hips stacked over your feet instead of sinking into the back seat.' },
+  'Single-leg pelvic curl': { m: 'Glutes, hamstrings, pelvic stability', ski: 'Keeps the pelvis level while one leg carries the load, the way the outside ski does in every turn.' },
+  'Imprint toe taps': { m: 'Deep abdominals (transverse abdominis), hip flexors', ski: 'Trains a quiet trunk while the legs move. That is your core’s job as the legs soak up bumps.' },
+  'Clamshell': { m: 'Glute medius, deep hip rotators', ski: 'Stops the knee caving inward on the downhill ski, a classic cause of knee strain.' },
+  'Side-lying leg lift': { m: 'Glute medius, outer hip', ski: 'Builds the side-hip strength that holds your edge angle steady through the turn.' },
+  'Side-lying leg circles': { m: 'Glute medius, hip rotators, hip flexors', ski: 'Hip control in every direction, so you steer the ski from the hip instead of twisting the knee.' },
+  'Bridge march': { m: 'Glutes, hamstrings, anti-rotation core', ski: 'Single-leg hip stability, like shifting weight ski to ski without the hips dropping.' },
+  'The Hundred': { m: 'Deep abdominals, hip flexors', ski: 'Core endurance, so your trunk stays solid at the end of a long run instead of folding.' },
+  'Swimming': { m: 'Back extensors, glutes, rear shoulders', ski: 'Back strength to stay tall and resist getting thrown backwards when the snow grabs your skis.' },
+
+  // Lift A
+  'Bulgarian split squat': { m: 'Quads, glutes, adductors', ski: 'Single-leg strength for the outside ski, which carries most of your weight through a turn.' },
+  'Single-arm dumbbell row': { m: 'Lats, mid-back, rear shoulder; obliques resist rotation', ski: 'Upper-back strength for pole plants, carrying skis, and pushing yourself up after a fall.' },
+  'Single-leg RDL, opposite hand': { m: 'Hamstrings, glutes, foot and ankle stabilisers', ski: 'Strong hamstrings protect the ACL and help you recover when a ski runs away from you.' },
+  'Single-leg RDL': { m: 'Hamstrings, glutes, foot and ankle stabilisers', ski: 'Strong hamstrings protect the ACL and help you recover when a ski runs away from you.' },
+  'Half-kneeling overhead press': { m: 'Shoulders, triceps, core, glute of the down leg', ski: 'Shoulder strength for poling and getting up off the snow, with a braced trunk.' },
+  'Hip thrust': { m: 'Glutes (gluteus maximus), hamstrings', ski: 'Hip drive keeps you forward and centred, and powers the extend-and-absorb movement through terrain.' },
+  'Pallof press': { m: 'Obliques, deep core (anti-rotation)', ski: 'Keeps the upper body quiet and facing downhill while the legs turn underneath it.' },
+  'Pallof press with a step out': { m: 'Obliques, deep core, hip stabilisers', ski: 'Adds moving feet under a stable trunk, closer to what happens mid-turn.' },
+  'Lateral step-up': { m: 'Quads, glute medius, inner quad (VMO)', ski: 'Controls the knee over the toes as you push sideways, like the edge change between turns.' },
+  'Lateral bound to stick': { m: 'Glutes, adductors, ankle stabilisers (power + landing)', ski: 'Quick, stable one-leg landings, like recovering after catching an edge.' },
+  'Face pull': { m: 'Rear delts, rotator cuff, mid traps', ski: 'Posture and shoulder health under a backpack and through hundreds of pole plants.' },
+  'Wall sit into ski tuck': { m: 'Quads (isometric), glutes', ski: 'Leg endurance. Burning thighs halfway down a run is exactly what this delays.' },
+
+  // Lift B
+  'Step-up, high box': { m: 'Glutes, quads', ski: 'Strength from a deep knee bend, for powder, moguls, and standing up from low positions.' },
+  'Lat pulldown': { m: 'Lats, biceps, mid-back', ski: 'Pulling strength for poling across flats and hauling yourself up after a fall.' },
+  'Cossack squat': { m: 'Adductors, quads, glutes, hip mobility', ski: 'Strength and range in a wide side position, for wide stances and saving a splayed ski.' },
+  'Skater bound, stick it': { m: 'Glutes, adductors, quads, ankle stabilisers (power + landing)', ski: 'Edge-to-edge power and absorbing force on one leg, like a quick turn transition.' },
+  'B-stance hip thrust': { m: 'Glutes (front leg), hamstrings', ski: 'Single-leg hip strength with a little support, matching the uneven load between your two skis.' },
+  'Copenhagen plank, short lever': { m: 'Adductors (inner thigh), obliques', ski: 'Inner thighs keep the skis together and protect the knee from twisting outward.' },
+  'Copenhagen plank': { m: 'Adductors (inner thigh), obliques', ski: 'Inner thighs keep the skis together and protect the knee from twisting outward.' },
+  'Single-leg stand + cable chop': { m: 'Ankle and hip stabilisers, obliques', ski: 'One-leg balance while the upper body rotates, as when you plant a pole mid-turn.' },
+  'Lateral raise': { m: 'Side delts', ski: 'Shoulder endurance for poling, and resilience if you put a hand down in a fall.' },
+  'Ski tuck with weight shifts': { m: 'Quads, glutes, adductors (isometric)', ski: 'Rehearses shifting pressure from edge to edge while staying low and stable.' },
+
+  // After the run, mobility
+  'Knee-to-wall ankle rocks': { m: 'Ankle dorsiflexion: calves, Achilles', ski: 'Ski boots push your shins forward. Without this ankle bend you end up sitting back.' },
+  'Slow calf raise': { m: 'Calves, Achilles tendon', ski: 'Tendon resilience for running, and better control of shin pressure against the boot.' },
+  'Couch stretch': { m: 'Hip flexors, quads (stretch)', ski: 'Running and skiing tighten the hip flexors, which pull you into a seated stance. This undoes that.' },
+  '90/90 hip switches': { m: 'Hip internal and external rotation', ski: 'Hip rotation is what steers the skis. More of it means less twisting at the knee.' },
+  'Open-book thoracic rotation': { m: 'Mid-back (thoracic) mobility', ski: 'Lets your upper body face downhill while the legs turn underneath.' },
+  'Figure-4 stretch': { m: 'Glutes, piriformis (stretch)', ski: 'Releases the hips after lots of single-leg work, so they move freely.' },
+  'Figure-4 on your back': { m: 'Glutes, piriformis (stretch)', ski: 'Releases the hips after lots of single-leg work, so they move freely.' },
+
+  // Evening power yoga
+  'Chair pose holds': { m: 'Quads, glutes, core', ski: 'Essentially a ski stance. Builds endurance in that exact bent-knee position.' },
+  'Warrior II, reverse warrior, extended side angle': { m: 'Quads, adductors, glutes, shoulders', ski: 'Wide-stance strength and side-to-side stability.' },
+  'Crescent lunge with twist': { m: 'Hip flexors, quads, obliques', ski: 'Leg strength plus upper-body rotation, like a pole plant through a turn.' },
+  'Warrior III': { m: 'Standing-leg glute, hamstring and ankle; back', ski: 'One-leg balance with the body hinged forward, close to a forward-pressured stance.' },
+  'Half moon': { m: 'Glute medius, ankle stabilisers, obliques', ski: 'Side balance on one leg, the feeling of holding an edge.' },
+  'Boat pose': { m: 'Deep abdominals, hip flexors', ski: 'Core strength to keep the trunk stable over the skis.' },
+  'Pigeon': { m: 'Glutes, hip rotators (stretch)', ski: 'Restores hip rotation after lifting and running.' },
+  'Savasana': { m: 'Nervous system (recovery)', ski: 'Recovery matters: tired muscles react more slowly on the hill.' },
+
+  // Evening Pilates
+  'Roll-up': { m: 'Abdominals, spinal articulation', ski: 'Spinal control, so the trunk can flex and absorb terrain without collapsing.' },
+  'Single-leg stretch + criss-cross': { m: 'Abdominals, obliques', ski: 'Rotational core strength for a quiet, downhill-facing upper body.' },
+  'Teaser prep': { m: 'Deep core, hip flexors', ski: 'Balancing from your centre, the same skill as staying centred over your skis.' },
+  'Side-lying series': { m: 'Glute medius, outer hip, adductors', ski: 'Side-hip strength to hold edge angles turn after turn.' },
+  'Leg pull front': { m: 'Shoulders, core, glutes', ski: 'Whole-body bracing, plus strength to push up off the snow.' },
+  'Side plank star': { m: 'Obliques, glute medius, shoulder', ski: 'Side core and hip working together, like holding a carved turn.' },
+  'Shoulder bridge, single leg': { m: 'Glutes, hamstrings', ski: 'Single-leg hip stability with control on the way down.' },
+
+  // Restorative
+  "Child's pose": { m: 'Lower back, hips (release)', ski: 'Releases the lower back, which works hard holding a forward stance.' },
+  'Supine twist': { m: 'Spine, glutes (release)', ski: 'Restores spinal rotation so the upper and lower body can move separately.' },
+  'Reclined bound angle': { m: 'Adductors, hips (release)', ski: 'Opens the inner thighs after Copenhagen planks and tennis.' },
+  'Legs up the wall': { m: 'Legs (recovery)', ski: 'Helps your legs feel fresh the night before skiing.' },
+
+  // Runs, tennis
+  'Brisk walk warm-up': { m: 'Heart, calves, hips', ski: 'Eases the joints in, so the running starts on warm tissue.' },
+  'Intervals': { m: 'Heart and lungs; calves, quads, hip stabilisers', ski: 'An aerobic base means faster recovery between runs, and it helps at altitude.' },
+  'Walk cool-down': { m: 'Heart rate, calves', ski: 'Brings everything down gently so tomorrow’s legs feel better.' },
+  'Tennis': { m: 'Legs, hips, core, reaction speed', ski: 'Split steps and quick direction changes train the reactions you use when terrain changes under you.' },
+};
+
+/* ---------- Sessions (from the original plan) ---------- */
+const SESS = {
+  M1: { t: 'Morning flow', d: '12 min',
+    fmt: 'Flow through the sun salutations slowly, then go straight into the floor work. On lift days this is your warm-up.',
+    ex: [
+      ['Sun Salutation A', '× 4', 'Inhale up, exhale fold, step back, chaturanga on the knees, cobra, down dog for 3 breaths.'],
+      ['Pelvic curl', '× 10', 'Peel up one vertebra at a time and squeeze the glutes at the top.'],
+      ['Imprint toe taps', '2 × 8 / side', 'Tabletop legs, keep the low back heavy on the mat.'],
+      ['Clamshell', '15 / side', 'Heels together, rotate from the hip and keep the pelvis still.'],
+      ['Side-lying leg lift', '15 / side', 'Toe slightly down, lead with the heel.'],
+      ['Bridge march', '20 steps', 'Hips stay level as you lift each foot.'],
+    ] },
+  M2: { t: 'Morning flow, week 2', d: '14 min',
+    fmt: 'A little more challenge. Same rhythm.',
+    ex: [
+      ['Sun Salutation A', '× 3', ''],
+      ['Sun Salutation B', '× 2', 'Adds chair pose and warrior I. Sit low in the chair, like a ski stance.'],
+      ['Single-leg pelvic curl', '8 / side', 'Keep the hips level.'],
+      ['The Hundred', '× 50 pumps', 'Legs in tabletop, or extended if your back stays down.'],
+      ['Side-lying leg circles', '10 each way / side', 'Small, controlled circles.'],
+      ['Swimming', '3 × 20 s', 'Prone, with long opposite arm and leg flutters.'],
+    ] },
+
+  LA: { t: 'Lift A · Single leg + back & shoulders', d: '50 min', lift: true,
+    fmt: 'Supersets. A1 then A2, rest 60–90 s, repeat for every set. Single-leg work comes first while you’re fresh.',
+    ex: [
+      ['A1', 'Bulgarian split squat', '4 × 8 / side', '3 seconds down. Front shin fairly upright to bias the glute.', true],
+      ['A2', 'Single-arm dumbbell row', '4 × 10 / side', 'Brace on a bench and pull to the hip.', true],
+      ['B1', 'Single-leg RDL, opposite hand', '3 × 10 / side', 'Hips square, long spine, feel the hamstring and glute.', true],
+      ['B2', 'Half-kneeling overhead press', '3 × 10 / side', 'Squeeze the down-knee glute. Ribs stay down.', true],
+      ['C1', 'Hip thrust', '3 × 12', 'Pause 2 s at the top with your chin tucked.', true],
+      ['C2', 'Pallof press', '3 × 10 / side', 'Cable or band. Resist the rotation.', true],
+      ['D1', 'Lateral step-up', '3 × 10 / side', 'The working knee tracks over the toes. Lower slowly.', true],
+      ['D2', 'Face pull', '3 × 15', 'Pull to the eyes, thumbs back. Good for posture under a backpack.', true],
+      ['Fin', 'Wall sit into ski tuck', '2 × 60 s', '30 s on the wall, then step off and hold a ski tuck for 30 s.', false],
+    ] },
+  LB: { t: 'Lift B · Glutes + agility & stability', d: '50 min', lift: true,
+    fmt: 'Supersets again. B2 is the agility piece: quality landings, not volume.',
+    ex: [
+      ['A1', 'Step-up, high box', '4 × 8 / side', 'Drive through the heel, no push from the back foot.', true],
+      ['A2', 'Lat pulldown', '4 × 10', 'Lead with the elbows.', true],
+      ['B1', 'Cossack squat', '3 × 6 / side', 'Hold a light plate as a counterweight if needed.', true],
+      ['B2', 'Skater bound, stick it', '3 × 5 / side', 'Leap sideways, land on one leg, freeze for 2 s.', false],
+      ['C1', 'B-stance hip thrust', '3 × 10 / side', 'Most of the load goes through the front leg.', true],
+      ['C2', 'Copenhagen plank, short lever', '3 × 20 s / side', 'Inner-thigh strength protects the knees on skis.', false],
+      ['D1', 'Single-leg stand + cable chop', '3 × 8 / side', 'Stand on a pad if you have one. High-to-low chop.', true],
+      ['D2', 'Lateral raise', '3 × 12', 'Slow down, no swinging.', true],
+      ['Fin', 'Ski tuck with weight shifts', '2 × 45 s', 'Shift edge to edge, like linking turns.', false],
+    ] },
+  LA2: { t: 'Lift A · Week 2', d: '50 min', lift: true,
+    fmt: 'Same supersets as week 1. Add a little weight to A1 and C1 if last week felt solid. D1 changes to lateral bounds.',
+    ex: [
+      ['A1', 'Bulgarian split squat', '4 × 8 / side', 'Same tempo, slightly heavier.', true],
+      ['A2', 'Single-arm dumbbell row', '4 × 10 / side', '', true],
+      ['B1', 'Single-leg RDL', '3 × 10 / side', '', true],
+      ['B2', 'Half-kneeling overhead press', '3 × 10 / side', '', true],
+      ['C1', 'Hip thrust', '3 × 10', 'Heavier, still with a 2 s pause.', true],
+      ['C2', 'Pallof press with a step out', '3 × 8 / side', 'Press, then step sideways while holding.', true],
+      ['D1', 'Lateral bound to stick', '3 × 5 / side', 'Replaces step-ups this week.', false],
+      ['D2', 'Face pull', '3 × 15', '', true],
+      ['Fin', 'Wall sit into ski tuck', '2 × 75 s', '45 s on the wall, 30 s in the tuck.', false],
+    ] },
+  LB2: { t: 'Lift B · Week 2, taper', d: '40 min', lift: true, taper: true,
+    fmt: 'About 80% of your usual weights, one set fewer. Stay sharp, don’t get sore. This is your last hard leg session.',
+    ex: [
+      ['A1', 'Step-up, high box', '3 × 8 / side', 'Lighter.', true],
+      ['A2', 'Lat pulldown', '3 × 10', '', true],
+      ['B1', 'Cossack squat', '2 × 6 / side', '', true],
+      ['B2', 'Skater bound, stick it', '3 × 4 / side', 'Crisp and quick off the floor.', false],
+      ['C1', 'B-stance hip thrust', '2 × 10 / side', '', true],
+      ['C2', 'Copenhagen plank', '2 × 20 s / side', '', false],
+      ['D1', 'Single-leg stand + cable chop', '2 × 8 / side', '', true],
+      ['D2', 'Lateral raise', '2 × 12', '', true],
+    ] },
+
+  CA: { t: 'After the run · Ankles & calves', d: '6 min',
+    ex: [
+      ['Knee-to-wall ankle rocks', '2 × 10 / side', 'Ski boots need this ankle bend.'],
+      ['Slow calf raise', '2 × 12', '3 seconds down. Helps runners’ shins and Achilles.'],
+      ['Couch stretch', '45 s / side', ''],
+    ] },
+  MOB: { t: 'Mobility', d: '10 min',
+    ex: [
+      ['Knee-to-wall ankle rocks', '2 × 10 / side', ''],
+      ['90/90 hip switches', '2 × 8', ''],
+      ['Open-book thoracic rotation', '8 / side', ''],
+      ['Figure-4 stretch', '45 s / side', ''],
+    ] },
+
+  EY: { t: 'Evening · Power yoga', d: '35 min', open: true,
+    fmt: 'A strong flow with balance work. Hold each pose for 5 breaths unless noted.',
+    ex: [
+      ['Sun Salutation B', '× 4', 'Build heat.'],
+      ['Chair pose holds', '3 × 30 s', 'Twist on the last hold.'],
+      ['Warrior II, reverse warrior, extended side angle', 'flow × 3 / side', 'Front thigh low.'],
+      ['Crescent lunge with twist', '5 breaths / side', ''],
+      ['Warrior III', '3 × 20 s / side', 'Standing-leg balance for skiing.'],
+      ['Half moon', '20 s / side', 'Use a block or wall if needed.'],
+      ['Boat pose', '3 × 30 s', ''],
+      ['Pigeon', '90 s / side', ''],
+      ['Savasana', '3 min', ''],
+    ] },
+  EP: { t: 'Evening · Pilates, intense', d: '30 min', open: true,
+    fmt: 'Continuous mat work. Move slowly with the breath and keep a deep core connection throughout.',
+    ex: [
+      ['The Hundred', '× 100', ''],
+      ['Roll-up', '× 8', 'Bend the knees if your feet lift.'],
+      ['Single-leg stretch + criss-cross', '× 10 / side each', ''],
+      ['Teaser prep', '3 × 5', ''],
+      ['Side-lying series', '10 each / side', 'Front and back kicks, lifts, circles.'],
+      ['Swimming', '3 × 30 s', ''],
+      ['Leg pull front', '3 × 6 / side', 'Plank with a leg lift.'],
+      ['Side plank star', '3 × 15 s / side', 'Top leg lifted.'],
+      ['Shoulder bridge, single leg', '8 / side', 'Kick the leg up and lower it with control.'],
+    ] },
+  ER: { t: 'Evening · Restorative yoga', d: '20 min', open: true,
+    fmt: 'No effort, just hold each shape and breathe.',
+    ex: [
+      ["Child's pose", '2 min', ''],
+      ['Supine twist', '90 s / side', ''],
+      ['Figure-4 on your back', '90 s / side', ''],
+      ['Reclined bound angle', '3 min', ''],
+      ['Legs up the wall', '5 min', 'A good way to wind down the night before skiing.'],
+    ] },
+};
+
+/* ---------- Walk–run ladder ---------- */
+// [run minutes, walk minutes, repeats]. Rungs 1–3 are the ladder; Run 4 is the Day 14 shake-out.
+const LADDER = [[1, 1.5, 8], [1.5, 1, 8], [2, 1, 7]];
+const SHAKEOUT = [1.5, 1, 6];
 const WARMUP_MIN = 5;
 const COOLDOWN_MIN = 5;
 
-const MORNING = {
-  yoga: {
-    title: 'Morning yoga',
-    mins: 15,
-    detail: 'Cat–cow, low lunge with twist, lizard, half pigeon, down dog, chair pose hold, forward fold.',
-  },
-  pilates: {
-    title: 'Morning Pilates',
-    mins: 15,
-    detail: 'The hundred, single-leg stretch, side-lying leg series, bridge with march, swimming, side plank.',
-  },
-  mobility: {
-    title: 'Gentle mobility',
-    mins: 10,
-    detail: 'Hip circles, ankle rocks, thoracic rotations, slow cat–cow. Nothing that makes you sore.',
-  },
-};
-
-const EVENING = {
-  power: {
-    title: 'Power yoga',
-    mins: 30,
-    detail: 'Sun salutation B ×5, warrior flow, chair with twist, crescent lunge, long holds in hip openers.',
-  },
-  pilates: {
-    title: 'Evening Pilates',
-    mins: 30,
-    detail: 'Mat class with a focus on deep core, glutes and inner thighs. Controlled, no rushing.',
-  },
-  restorative: {
-    title: 'Restorative yoga',
-    mins: 30,
-    detail: 'Supported child’s pose, reclined bound angle, legs up the wall, supported twist. Keep your legs fresh.',
-  },
-};
-
-const LIFTS = {
-  liftA: {
-    name: 'Lift A',
-    focus: 'Single-leg strength',
-    mins: 45,
-    warmup: '5 min easy cardio, leg swings, 10 bodyweight squats, 5 lateral lunges each side.',
-    supersets: [
-      { key: 'A', sets: 3, ex: [
-        { id: 'A1', name: 'Rear-foot elevated split squat', reps: '8 / leg', load: true },
-        { id: 'A2', name: 'Ski-stance wall sit', reps: '30–45 s', load: false },
-      ] },
-      { key: 'B', sets: 3, ex: [
-        { id: 'B1', name: 'Single-leg Romanian deadlift', reps: '8 / leg', load: true },
-        { id: 'B2', name: 'Lateral lunge', reps: '8 / side', load: true },
-      ] },
-      { key: 'C', sets: 2, ex: [
-        { id: 'C1', name: 'Slow step-down (4 s lowering)', reps: '8 / leg', load: false },
-        { id: 'C2', name: 'Side plank', reps: '30 s / side', load: false },
-      ] },
-    ],
-  },
-  liftB: {
-    name: 'Lift B',
-    focus: 'Single-leg power and landing',
-    mins: 45,
-    warmup: '5 min easy cardio, leg swings, 10 pogo hops, 5 lateral lunges each side.',
-    supersets: [
-      { key: 'A', sets: 3, ex: [
-        { id: 'A1', name: 'Step-up (knee-height box)', reps: '8 / leg', load: true },
-        { id: 'A2', name: 'Skater hop, stick each landing', reps: '6 / side', load: false },
-      ] },
-      { key: 'B', sets: 3, ex: [
-        { id: 'B1', name: 'Single-leg hip thrust', reps: '10 / leg', load: true },
-        { id: 'B2', name: 'Lateral line hop', reps: '8 / side', load: false },
-      ] },
-      { key: 'C', sets: 2, ex: [
-        { id: 'C1', name: 'Cossack squat', reps: '6 / side', load: true },
-        { id: 'C2', name: 'Copenhagen plank (short lever)', reps: '20 s / side', load: false },
-      ] },
-    ],
-  },
-};
-
-// The 14 days. main: liftA | liftB | run | tennis | rest
+/* ---------- The 14 days ---------- */
+// main: session keys; { run: n } is a run on planned rung n (0-based); { tennis: true } is a tennis block.
 const DAYS = [
-  { morning: 'yoga',     main: 'liftA' },
-  { morning: 'pilates',  main: 'run' },
-  { morning: 'yoga',     main: 'rest',   evening: 'power' },
-  { morning: 'pilates',  main: 'liftB' },
-  { morning: 'yoga',     main: 'rest',   evening: 'pilates' },
-  { morning: 'pilates',  main: 'tennis' },
-  { morning: 'yoga',     main: 'run' },
-  { morning: 'pilates',  main: 'liftA' },
-  { morning: 'yoga',     main: 'run' },
-  { morning: 'pilates',  main: 'rest',   evening: 'power' },
-  { morning: 'yoga',     main: 'liftB',  taper: true,
-    note: 'Taper: about 80% of your week 1 weight. This is your last hard leg work.' },
-  { morning: 'pilates',  main: 'rest',   evening: 'pilates' },
-  { morning: 'yoga',     main: 'tennis', easy: true,
-    note: 'Taper: easy rallying, skip the competitive sets.' },
-  { morning: 'mobility', main: 'run',    easy: true, evening: 'restorative',
-    note: 'Repeat your current rung. Don’t move up before the trip.' },
+  { t: 'Lift A', w: 'Single-leg strength with back and shoulders. The morning flow is your warm-up.', am: 'M1', main: ['LA'] },
+  { t: 'Run 1', w: 'The first walk–run. It’s meant to feel too easy.', am: 'M1', main: [{ run: 0 }, 'CA'] },
+  { t: 'Rest + power yoga', w: 'No training in the day. In the evening, a strong yoga flow with balance work.', am: 'M1', main: [], pm: 'EY' },
+  { t: 'Lift B', w: 'Glutes, agility and stability. Land the bounds carefully.', am: 'M1', main: ['LB'] },
+  { t: 'Rest + Pilates', w: 'No training in the day. In the evening, a full Pilates mat session.', am: 'M1', main: [], pm: 'EP' },
+  { t: 'Tennis', w: 'Tennis is your lateral agility work. Open your hips afterwards.', am: 'M1', main: [{ tennis: 'Tennis', n: 'Play as normal.' }, 'MOB'] },
+  { t: 'Run 2', w: 'Longer run intervals, shorter walk breaks. Repeat Run 1 if your shins or knees talked back.', am: 'M1', main: [{ run: 1 }, 'CA'] },
+  { t: 'Lift A, week 2', w: 'A little heavier, and lateral bounds come in.', am: 'M2', main: ['LA2'] },
+  { t: 'Run 3', w: 'Two-minute run intervals, the biggest run of the plan. Stay conversational.', am: 'M2', main: [{ run: 2 }, 'CA'] },
+  { t: 'Rest + Pilates', w: 'No training in the day. In the evening, a full Pilates mat session.', am: 'M2', main: [], pm: 'EP' },
+  { t: 'Lift B, taper', w: 'Lighter, crisp, and your last hard leg session.', am: 'M2', main: ['LB2'] },
+  { t: 'Rest + power yoga', w: 'No training in the day. In the evening, a yoga flow. Ease off the chair holds if your legs feel heavy.', am: 'M2', main: [], pm: 'EY' },
+  { t: 'Easy tennis', w: 'Optional. Rally rather than compete.', am: 'M2', main: [{ tennis: 'Easy tennis (optional)', n: 'Keep it light, legs are tapering.' }, 'MOB'] },
+  { t: 'Shake-out + restore', w: 'A short, easy run, then wind down. Pack your boots and sleep early.', am: 'M2', main: [{ run: 'shakeout' }], pm: 'ER' },
 ];
-
-const TENNIS = {
-  title: 'Tennis',
-  detail: 'Play as normal. Warm up with 5 min of side shuffles and split steps.',
-  easyDetail: 'Easy rallying only. Keep moving, stay loose.',
-};
+const DAY15 = 'Day 15 is your first ski day. Do the morning flow, ease into your first two runs, then go.';
 
 const FORM_CUES = [
   'Knees track over the 2nd–3rd toe and never cave in.',
