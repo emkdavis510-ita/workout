@@ -1,5 +1,5 @@
 // Bump VERSION whenever you change any file so phones pick up the update.
-const VERSION = 'skiprep-v4';
+const VERSION = 'skiprep-v5';
 const FONT_CACHE = 'skiprep-fonts';
 const ASSETS = [
   './',
@@ -14,8 +14,13 @@ const ASSETS = [
   'icons/apple-touch-icon.png',
 ];
 
+// cache: 'reload' skips the browser's HTTP cache, so an update always stores the newest files.
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(VERSION)
+      .then(c => c.addAll(ASSETS.map(u => new Request(u, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', e => {
@@ -23,6 +28,8 @@ self.addEventListener('activate', e => {
     caches.keys()
       .then(keys => Promise.all(keys.filter(k => k !== VERSION && k !== FONT_CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({ type: 'window' }))
+      .then(clients => clients.forEach(c => c.postMessage({ type: 'updated', version: VERSION })))
   );
 });
 
@@ -30,10 +37,10 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
-  const host = new URL(req.url).hostname;
+  const url = new URL(req.url);
 
   // Google Fonts: cache the first time they load so the app keeps its look offline.
-  if (host === 'fonts.googleapis.com' || host === 'fonts.gstatic.com') {
+  if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
     e.respondWith(
       caches.open(FONT_CACHE).then(async cache => {
         const hit = await cache.match(req);
@@ -46,12 +53,12 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  if (new URL(req.url).origin !== location.origin) return;
+  if (url.origin !== location.origin) return;
   e.respondWith(
     caches.open(VERSION).then(async cache => {
       const cached = await cache.match(req, { ignoreSearch: true }) ||
         (req.mode === 'navigate' ? await cache.match('index.html') : undefined);
-      const network = fetch(req)
+      const network = fetch(url.href, { cache: 'no-cache' })
         .then(res => { if (res.ok) cache.put(req, res.clone()); return res; })
         .catch(() => cached);
       return cached || network;

@@ -759,10 +759,12 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   // When an update installs, reload once so you see it straight away (but never in the middle of a run).
   const hadController = !!navigator.serviceWorker.controller;
   let reloading = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
+  const reloadForUpdate = () => {
     if (!hadController || reloading || S.timer) return;
     reloading = true;
     location.reload();
-  });
+  };
+  navigator.serviceWorker.addEventListener('controllerchange', reloadForUpdate);
+  navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'updated') reloadForUpdate(); });
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
