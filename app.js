@@ -27,7 +27,7 @@ function load() {
   return fresh();
 }
 let S = load();
-const APP_VERSION = '8';
+const APP_VERSION = '9';
 
 /* Two copies of your progress: localStorage (instant) and IndexedDB (written as a committed
    transaction, so it survives the app being closed straight after a tap). On launch the
@@ -103,6 +103,11 @@ const N_DAYS = DAYS.length;
 const dateOf = n => addDays(S.start, n - 1);
 const currentDay = () => diffDays(S.start, todayISO()) + 1;
 const clampDay = n => Math.min(N_DAYS, Math.max(1, n));
+// Day order: S.order[slot-1] is the plan day shown on that date. Ticks are keyed by plan day,
+// so a workout keeps its ticks when it moves. The morning flow stays on its date.
+const planAt = c => (Array.isArray(S.order) && S.order[c - 1]) || c;
+const slotOf = p => (Array.isArray(S.order) ? S.order.indexOf(p) + 1 || p : p);
+const isReordered = () => Array.isArray(S.order) && S.order.some((p, i) => p !== i + 1);
 const phaseOf = n => (n <= 7 ? 'Week 1 · Build' : n <= 11 ? 'Week 2 · Sharpen' : 'Week 2 · Taper');
 
 const rungDef = r => (r === 'shakeout' ? SHAKEOUT : LADDER[r]);
@@ -127,9 +132,10 @@ function runRungFor(n, planned) {
   return Math.min(planned, S.ladder.rung);
 }
 
-function blocks(n) {
+function blocks(c) {
+  const n = planAt(c);
   const d = DAYS[n - 1];
-  const out = [{ key: `${n}:am`, slot: 'am', sess: d.am }];
+  const out = [{ key: `${c}:am`, slot: 'am', sess: DAYS[c - 1].am }];
   for (const m of d.main) {
     if (typeof m === 'string') out.push({ key: `${n}:${m}`, slot: 'main', sess: m });
     else if ('run' in m) out.push({ key: `${n}:run`, slot: 'main', run: runRungFor(n, m.run), planned: m.run });
@@ -138,12 +144,12 @@ function blocks(n) {
   if (d.pm) out.push({ key: `${n}:pm`, slot: 'pm', sess: d.pm });
   return out;
 }
-function dayKind(n) {
-  const main = DAYS[n - 1].main;
+function dayKind(c) {
+  const main = DAYS[planAt(c) - 1].main;
   if (main.some(m => typeof m === 'string' && SESS[m].lift)) return SESS[main[0]].taper ? 'taper' : 'lift';
   if (main.some(m => typeof m === 'object' && 'run' in m)) return 'run';
   if (main.some(m => typeof m === 'object' && m.tennis)) return 'tennis';
-  return 'rest';
+  return 'off';
 }
 function dayProgress(n) {
   const b = blocks(n);
@@ -213,8 +219,8 @@ function drawSwap() {
   openSheet(`<h2>Swap ${label}</h2>
     <p class="small muted">Now doing <b>${esc(cur)}</b>. Each option works the same muscles and keeps the same sets and reps.</p>
     ${days.length > 1 ? `<div class="q"><p>Apply to</p><div class="seg">
-      <button data-act="swapscope" data-v="day" ${pressed('day')}>Day ${n} only</button>
-      <button data-act="swapscope" data-v="all" ${pressed('all')}>Days ${days.map(d => d.n).join(' & ')}</button></div></div>` : ''}
+      <button data-act="swapscope" data-v="day" ${pressed('day')}>Day ${slotOf(n)} only</button>
+      <button data-act="swapscope" data-v="all" ${pressed('all')}>Days ${days.map(d => slotOf(d.n)).sort((a, b) => a - b).join(' & ')}</button></div></div>` : ''}
     <ul class="swapl">${opts.map(([nm, why]) => {
       const i = EX[nm] || {};
       return `<li><button class="swapopt ${nm === cur ? 'on' : ''}" data-act="swappick" data-name="${esc(nm)}" aria-pressed="${nm === cur}">
@@ -237,6 +243,31 @@ function pickSwap(name) {
   }
   swapCtx = null;
   save(); closeSheet(); rerender();
+}
+
+/* ---------- swap whole days ---------- */
+let daySwapFrom = null;
+function openDaySwap(c) {
+  daySwapFrom = c;
+  const today = currentDay();
+  let rows = '';
+  for (let o = 1; o <= N_DAYS; o++) {
+    if (o === c) continue;
+    const pr = dayProgress(o);
+    rows += `<li><button class="swapopt" data-act="dayswappick" data-day="${o}">
+      <span class="row between"><b>Day ${o} · ${fmtDate(dateOf(o))}${o === today ? ' · today' : ''}</b><span class="chip ${dayKind(o)}">${DAYS[planAt(o) - 1].t}</span></span>
+      <span class="tiny muted">${pr.done}/${pr.total} done</span></button></li>`;
+  }
+  openSheet(`<h2>Swap Day ${c}</h2>
+    <p class="small muted">Day ${c} (${fmtDate(dateOf(c))}) is <b>${DAYS[planAt(c) - 1].t}</b>. Pick the day to trade with. The workouts swap dates and keep any ticks, weights and run logs. Your morning flow stays on its date.</p>
+    <ul class="swapl">${rows}</ul>
+    ${isReordered() ? '<button class="btn block" style="margin-top:12px" data-act="dayorderreset">Put all days back in the original order</button>' : ''}
+    <button class="btn block" style="margin-top:8px" data-act="sheetclose">Cancel</button>`);
+}
+function swapDays(a, b) {
+  const order = Array.isArray(S.order) ? S.order.slice() : DAYS.map((_, i) => i + 1);
+  [order[a - 1], order[b - 1]] = [order[b - 1], order[a - 1]];
+  if (order.every((p, i) => p === i + 1)) delete S.order; else S.order = order;
 }
 
 /* ---------- rearrange / re-pair ---------- */
@@ -444,7 +475,7 @@ function liftBody(n, sk) {
           const pw = same ? parseFloat(S.weights[weightKey(prev, label, prevName, prevOrig)]) : NaN;
           if (!isNaN(pw)) ph = s.taper ? `~${Math.round(pw * 0.8 * 2) / 2}` : `${pw}`;
         }
-        extra = `<label class="wtl">Weight <input class="wt" inputmode="decimal" placeholder="${ph}" data-act="weight" data-key="${wk}" value="${esc(S.weights[wk] ?? '')}" aria-label="${esc(name)} weight in ${S.unit}"> ${S.unit}${ph ? `<span class="tiny muted">${s.taper ? '80% of' : 'last week:'} Day ${prev}</span>` : ''}</label>`;
+        extra = `<label class="wtl">Weight <input class="wt" inputmode="decimal" placeholder="${ph}" data-act="weight" data-key="${wk}" value="${esc(S.weights[wk] ?? '')}" aria-label="${esc(name)} weight in ${S.unit}"> ${S.unit}${ph ? `<span class="tiny muted">${s.taper ? '80% of' : 'last week:'} Day ${slotOf(prev)}</span>` : ''}</label>`;
       }
       const moved = baseGroup(label) !== G.k || (G.k !== 'Fin' && shown !== label);
       const notes = [swapped ? `Swapped from ${esc(orig)}` : '', moved ? `Moved from ${label}` : ''].filter(Boolean).join(' · ');
@@ -518,10 +549,11 @@ function blockHTML(n, b) {
 }
 
 function renderDay(n, isToday) {
-  const d = DAYS[n - 1];
+  const pd = planAt(n);
+  const d = DAYS[pd - 1];
   const bl = blocks(n);
   const p = dayProgress(n);
-  const slot = (name, list) => (list.length ? `<p class="slot">${name}</p>${list.map(b => blockHTML(n, b)).join('')}` : '');
+  const slot = (name, list) => (list.length ? `<p class="slot">${name}</p>${list.map(b => blockHTML(pd, b)).join('')}` : '');
   return `<div class="stack">
     ${isToday ? pendingBanner() : ''}
     <div class="dayhead">
@@ -530,6 +562,8 @@ function renderDay(n, isToday) {
       <div class="eyebrow" style="margin-top:10px">${isToday ? 'Today · ' : ''}${fmtDate(dateOf(n), { weekday: 'long', day: 'numeric', month: 'short' })} · ${p.done}/${p.total} done</div>
       <h2>Day ${n} · ${d.t}</h2>
       <p class="why">${d.w}</p>
+      <div class="row between" style="margin-top:10px"><span class="tiny muted">${pd !== n ? `⇄ Planned for Day ${pd}` : ''}</span>
+      <button class="swapbtn" data-act="dayswap" data-day="${n}">⇄ Swap with another day</button></div>
     </div>
     <div>
       ${slot('Morning', bl.filter(b => b.slot === 'am'))}
@@ -565,7 +599,7 @@ function renderPlan() {
       const p = dayProgress(n);
       html += `<a class="dcard ${n === c ? 'today' : ''} ${p.done === p.total ? 'complete' : ''}" href="#day/${n}">
         <div class="d">${fmtDate(dateOf(n))}</div><div class="t">Day ${n}</div>
-        <span class="chip ${dayKind(n)}">${DAYS[n - 1].t}</span>
+        <span class="chip ${dayKind(n)}">${DAYS[planAt(n) - 1].t}</span>${planAt(n) !== n ? '<span class="tiny muted moved">⇄ moved</span>' : ''}
         <span class="pips">${Array.from({ length: p.total }, (_, i) => `<i class="${i < p.done ? 'on' : ''}"></i>`).join('')}</span></a>`;
     }
     html += '</div></div>';
@@ -596,7 +630,7 @@ function renderLadder() {
   else {
     html += `<ul class="log">${log.slice().reverse().map(l => {
       const res = { up: '↑ moved up', repeat: '↻ repeat', done: '✓ done' }[l.result] || '… morning check';
-      return `<li><span>Day ${l.day} · ${rungName(l.rung)}</span><span class="muted">${res}</span></li>`;
+      return `<li><span>Day ${slotOf(l.day)} · ${rungName(l.rung)}</span><span class="muted">${res}</span></li>`;
     }).join('')}</ul>`;
   }
   return html + '</div></div>';
@@ -695,7 +729,7 @@ async function keepAwake() {
   try { if ('wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch (e) { /* ignore */ }
 }
 function releaseAwake() { try { wakeLock && wakeLock.release(); } catch (e) { /* ignore */ } wakeLock = null; }
-const runBlockFor = day => blocks(day).find(b => 'run' in b);
+const runBlockFor = day => blocks(slotOf(day)).find(b => 'run' in b);
 
 function startRun(day) {
   ensureAudio();
@@ -745,7 +779,7 @@ function drawRun() {
   if (idx >= segs.length) {
     clearInterval(runTick);
     runEl.className = 'runner done';
-    runEl.innerHTML = `<div class="top-row"><span>Day ${t.day} · ${rungName(t.rung)}</span></div>
+    runEl.innerHTML = `<div class="top-row"><span>Day ${slotOf(t.day)} · ${rungName(t.rung)}</span></div>
       <div class="center"><div class="phase">Done</div><div class="clock" style="font-size:72px">${mmss(total)}</div><div class="next">Nice work. Two quick questions.</div></div>
       <div class="ctrls" style="grid-template-columns:1fr"><button class="main" data-act="finishrun">Log this run</button></div>`;
     return;
@@ -753,7 +787,7 @@ function drawRun() {
   const s = segs[idx];
   const next = segs[idx + 1];
   runEl.className = `runner ${s.type}`;
-  runEl.innerHTML = `<div class="top-row"><span>Day ${t.day} · ${rungName(t.rung)}</span><span>${s.label}</span></div>
+  runEl.innerHTML = `<div class="top-row"><span>Day ${slotOf(t.day)} · ${rungName(t.rung)}</span><span>${s.label}</span></div>
     <div class="center">
       <div class="phase">${t.pausedAt ? 'Paused' : s.type === 'run' ? 'Run' : 'Walk'}</div>
       <div class="clock">${mmss(s.secs - into)}</div>
@@ -899,6 +933,14 @@ document.addEventListener('click', e => {
       reorderCtx = null;
       save(); closeSheet(); rerender(); break;
     }
+    case 'dayswap': openDaySwap(+t.dataset.day); break;
+    case 'dayswappick': {
+      const o = +t.dataset.day;
+      swapDays(daySwapFrom, o);
+      daySwapFrom = null;
+      save(); closeSheet(); rerender(); savedToast(`Swapped with Day ${o}`); break;
+    }
+    case 'dayorderreset': delete S.order; daySwapFrom = null; save(); closeSheet(); rerender(); savedToast('Original order'); break;
     case 'swap': openSwap(+t.dataset.day, t.dataset.label, t.dataset.orig); break;
     case 'swapscope': swapCtx.scope = t.dataset.v; drawSwap(); break;
     case 'swappick': pickSwap(t.dataset.name); break;
